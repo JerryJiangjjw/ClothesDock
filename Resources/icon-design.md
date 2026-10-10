@@ -1,0 +1,11 @@
+# 晾晾应用图标
+
+生成方式：内置 imagegen，未使用 CLI/API 回退。图标采用象牙白圆角底、棕色弧形晾衣绳、木色一体式衣夹和蓝色应用卡片。原图 PNG 保留透明背景；sips 仅用于多尺寸缩放，标准 ICNS 容器封装用于格式转换，iconutil 解码验证通过。
+
+## 原始提示词
+
+Use case: logo-brand. Asset type: final macOS application icon for 晾晾 / ClothesDock, a playful native Dock whose app icons hang from a curved clothesline. Generate ONE square 1024x1024 standalone production-ready icon, front-facing, not a presentation board or mockup. On transparent canvas put a large warm off-white macOS rounded-square tile with generous rounded corners, centered, filling about 84% of canvas with equal transparent margins. Inside the tile: a visibly sagging thin cocoa-brown clothesline entering from the left and right tile edges across its upper third; ONE elegant single solid ivory wooden clothespin with a small steel spring, pinching the top edge of ONE cobalt-blue rounded-square app card hanging below the rope. The card is tilted slightly, with a minimal white four-pane app grid embossed on it. The lower end of the clothespin overlaps the blue card so it clearly grips it. Do not render the pin as two separate parallel sticks. Refined sculpted macOS icon aesthetic, satin materials, restrained soft dimensionality, crisp silhouette, soft internal shadows, strong clarity even at 32px. Simple shapes, uncluttered composition, neutral ivory, blue and brown palette matching a minimal clothesline utility. No text, letters, trademarks, screenshots, scene props, multiple icons, or watermark. Outer canvas genuinely transparent; icon tile itself opaque.
+
+## 边缘修整提示词
+
+Polish this exact macOS app icon for production. Preserve the interior design: ivory rounded square, sagging brown rope, single solid wooden clothespin gripping the blue app tile with four white panes, all proportions, palette and lighting. Change only the OUTER PERIMETER and transparent margin: remove every stray white fleck, noise, ragged edge, detached pixel and halo outside the rounded-square silhouette. Use an immaculate smoothly anti-aliased macOS rounded square perimeter with clean genuine transparency outside it and equal margins. No grain or texture outside the tile, no external drop shadow, no text, no new elements. Final standalone square app-icon PNG with alpha, professional crisp clean edge.
