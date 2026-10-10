@@ -4,6 +4,11 @@ import UniformTypeIdentifiers
 // Avoid the SDK 27 State macro sharing the property wrapper name.
 typealias ViewState<Value> = SwiftUI.State<Value>
 
+struct IconFrameKey: PreferenceKey {
+    static var defaultValue: [CGRect] = []
+    static func reduce(value: inout [CGRect], nextValue: () -> [CGRect]) { value.append(contentsOf: nextValue()) }
+}
+
 struct DockView: View {
     @ObservedObject var model: DockModel
     @ObservedObject var motion: ClotheslineMotion
@@ -21,6 +26,7 @@ struct DockView: View {
             }
             .coordinateSpace(name: "clothesline")
         }
+        .onPreferenceChange(IconFrameKey.self) { motion.updateIconFrames($0) }
         .onDrop(of: [.fileURL], isTargeted: nil) { providers in receiveFiles(providers) { model.pin($0) }; return true }
         .alert("晾晾", isPresented: Binding(get: { model.error != nil }, set: { if !$0 { model.error = nil } })) { Button("好") { model.error = nil } } message: { Text(model.error ?? "") }
     }
@@ -72,6 +78,12 @@ struct HangingAppTile: View {
                 }
                 if hovered != inside { hovered = inside }
             }
+            .background(GeometryReader { inner in
+                let region = ClotheslineLayout.iconHoverRect(slot: geometry.size, iconSize: model.config.iconSize, position: t, edge: model.config.edge)
+                let slot = inner.frame(in: .named("clothesline"))
+                let icon = CGRect(x: slot.minX + region.minX, y: slot.minY + region.minY, width: region.width, height: region.height)
+                Color.clear.preference(key: IconFrameKey.self, value: [icon])
+            })
         }
         .frame(width: vertical ? model.config.iconSize + 112 : model.config.iconSize + 8,
                height: vertical ? model.config.iconSize + 8 : model.config.iconSize + 112)

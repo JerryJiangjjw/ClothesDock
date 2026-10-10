@@ -22,6 +22,7 @@ final class DockHostingView: NSHostingView<DockView> {
     private var status: NSStatusItem!
     private var panels: [DockPanel] = []
     private var ropes: [RopePanel] = []
+    private var ambiencePanels: [RopePanel] = []
     private var motions: [ClotheslineMotion] = []
     private var screens: [NSScreen] = []
     private var settingsWindow: NSWindow?
@@ -60,8 +61,9 @@ final class DockHostingView: NSHostingView<DockView> {
     }
     @objc private func screenChanged() { rebuildPanels() }
     private func rebuildPanels() {
-        panels.forEach { $0.orderOut(nil) }; ropes.forEach { $0.orderOut(nil) }
-        panels = []; ropes = []; motions = []
+        motions.forEach { $0.stopAmbience() }
+        panels.forEach { $0.orderOut(nil) }; ropes.forEach { $0.orderOut(nil) }; ambiencePanels.forEach { $0.orderOut(nil) }
+        panels = []; ropes = []; motions = []; ambiencePanels = []
         screens = model.config.allDisplays ? NSScreen.screens : Array(NSScreen.screens.prefix(1))
         for _ in screens {
             let motion = ClotheslineMotion(); motion.edge = model.config.edge; motion.isVisible = false
@@ -79,9 +81,17 @@ final class DockHostingView: NSHostingView<DockView> {
             panel.alphaValue = 0; rope.alphaValue = 0; panel.ignoresMouseEvents = true
             panel.contentView = DockHostingView(rootView: DockView(model: model, motion: motion))
             panels.append(panel)
+            let ambience = RopePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
+            ambience.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue + 1)
+            ambience.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
+            ambience.backgroundColor = .clear; ambience.isOpaque = false; ambience.hasShadow = false
+            ambience.alphaValue = 0
+            ambience.ignoresMouseEvents = true; ambience.hidesOnDeactivate = false; ambience.isReleasedWhenClosed = false
+            ambience.contentView = NSHostingView(rootView: AmbienceView(motion: motion))
+            ambiencePanels.append(ambience)
         }
         layoutPanels(); updateVisibility()
-        ropes.forEach { $0.orderFrontRegardless() }; panels.forEach { $0.orderFrontRegardless() }
+        ropes.forEach { $0.orderFrontRegardless() }; panels.forEach { $0.orderFrontRegardless() }; ambiencePanels.forEach { $0.orderFrontRegardless() }
     }
     private func layoutPanels() {
         guard let model else { return }
@@ -94,9 +104,12 @@ final class DockHostingView: NSHostingView<DockView> {
             let frame = ClotheslineLayout.dockFrame(screen: screen.frame, menuBarTop: screen.visibleFrame.maxY, edge: config.edge, iconSize: config.iconSize, offset: config.offset, length: length)
             let ropeFrame = ClotheslineLayout.ropeFrame(screen: screen.frame, menuBarTop: screen.visibleFrame.maxY, dock: frame, edge: config.edge)
             motions[index].dockFrame = frame; motions[index].ropeFrame = ropeFrame
+            motions[index].ambienceFrame = screen.frame
+            ambiencePanels[index].setFrame(screen.frame, display: true)
             let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             panel.setFrame(ClotheslineLayout.visibilityFrame(frame, edge: config.edge, visible: panel.targetVisible, reduceMotion: reduceMotion), display: true)
             ropes[index].setFrame(ClotheslineLayout.visibilityFrame(ropeFrame, edge: config.edge, visible: panel.targetVisible, reduceMotion: reduceMotion), display: true)
+            if panel.targetVisible { motions[index].scheduleAmbience(effect: config.openAnimation, dockSize: frame.size) }
         }
     }
     private func updateVisibility() {
@@ -112,21 +125,35 @@ final class DockHostingView: NSHostingView<DockView> {
             guard panel.targetVisible != show else { continue }
             panel.targetVisible = show; panel.visibilityRevision += 1
             let revision = panel.visibilityRevision
-            let motion = motions[index], rope = ropes[index]
+            let motion = motions[index], rope = ropes[index], ambience = ambiencePanels[index]
             panel.ignoresMouseEvents = !show
-            if show { motion.isVisible = true }
+            if show {
+                motion.isVisible = true
+                // Start together with the reveal; wait only for icon layout if needed.
+                let effect = model.config.openAnimation
+                let dockSize = motion.dockFrame.size
+                motion.scheduleAmbience(effect: effect, dockSize: dockSize)
+                motion.playRevealAmbience(effect: effect)
+            } else {
+                // Stop new effects now; keep the current frame until the fade completes.
+                motion.stopSchedulingAmbience()
+            }
             let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
             NSAnimationContext.runAnimationGroup { context in
                 context.duration = reduceMotion ? 0.12 : (show ? 0.28 : 0.22)
                 context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
                 panel.animator().alphaValue = show ? 1 : 0
                 rope.animator().alphaValue = show ? 1 : 0
+                ambience.animator().alphaValue = show ? 1 : 0
                 panel.animator().setFrame(ClotheslineLayout.visibilityFrame(motion.dockFrame, edge: model.config.edge, visible: show, reduceMotion: reduceMotion), display: true)
                 rope.animator().setFrame(ClotheslineLayout.visibilityFrame(motion.ropeFrame, edge: model.config.edge, visible: show, reduceMotion: reduceMotion), display: true)
             } completionHandler: {
                 Task { @MainActor in
                     // An interrupted hide must not pause the next reveal.
-                    if panel.visibilityRevision == revision && !panel.targetVisible { motion.isVisible = false }
+                    if panel.visibilityRevision == revision && !panel.targetVisible {
+                        motion.stopAmbience()
+                        motion.isVisible = false
+                    }
                 }
             }
         }

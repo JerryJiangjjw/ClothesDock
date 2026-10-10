@@ -11,6 +11,12 @@ struct PinnedItem: Codable, Identifiable, Equatable {
 }
 enum Edge: String, Codable, CaseIterable { case bottom, top, left, right }
 enum RopeColor: String, Codable, CaseIterable { case black, white, gray, brown }
+enum AnimationEffect: String, Codable, CaseIterable { case none, butterfly, wind }
+extension AnimationEffect {
+    var label: String {
+        switch self { case .none: return "关闭"; case .butterfly: return "蝴蝶"; case .wind: return "刮风" }
+    }
+}
 struct Configuration: Codable, Equatable {
     var items: [PinnedItem] = []
     var iconSize: Double = 52
@@ -23,6 +29,7 @@ struct Configuration: Codable, Equatable {
     var ropeWidth: Double = 1.8
     var ropeColor: RopeColor = .gray
     var revealDistance: Double = 12
+    var openAnimation: AnimationEffect = .none
     mutating func pin(_ url: URL) {
         let item = PinnedItem(path: url.standardizedFileURL.path)
         if !items.contains(item) { items.append(item) }
@@ -38,6 +45,7 @@ extension Configuration {
     enum CodingKeys: String, CodingKey {
         case items, iconSize, edge, autoHide, allDisplays, magnify, showRecent, offset
         case ropeWidth, ropeColor, revealDistance
+        case openAnimation
     }
     init(from decoder: Decoder) throws {
         self.init()
@@ -53,6 +61,7 @@ extension Configuration {
         ropeWidth = min(6, max(0.5, try values.decodeIfPresent(Double.self, forKey: .ropeWidth) ?? ropeWidth))
         ropeColor = try values.decodeIfPresent(RopeColor.self, forKey: .ropeColor) ?? ropeColor
         revealDistance = min(80, max(1, try values.decodeIfPresent(Double.self, forKey: .revealDistance) ?? revealDistance))
+        openAnimation = try values.decodeIfPresent(AnimationEffect.self, forKey: .openAnimation) ?? openAnimation
     }
 }
 final class ConfigurationStore {

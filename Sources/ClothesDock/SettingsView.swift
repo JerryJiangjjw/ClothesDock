@@ -18,6 +18,9 @@ struct SettingsView: View {
                 }.pickerStyle(.segmented)
                 HStack { Text("绳子粗细"); Slider(value: $model.config.ropeWidth, in: 0.5...6, step: 0.1); Text(String(format: "%.1f px", model.config.ropeWidth)).monospacedDigit() }
                 Toggle("悬停放大与晾衣绳摆动", isOn: $model.config.magnify)
+                Picker("开启动画", selection: $model.config.openAnimation) {
+                    ForEach(AnimationEffect.allCases, id: \.self) { effect in Text(effect.label).tag(effect) }
+                }.pickerStyle(.segmented)
                 Toggle("自动隐藏（靠近屏幕边缘显示）", isOn: $model.config.autoHide)
                 if model.config.autoHide {
                     HStack { Text("显示触发距离"); Slider(value: $model.config.revealDistance, in: 1...80, step: 1); Text("\(Int(model.config.revealDistance)) px").monospacedDigit() }

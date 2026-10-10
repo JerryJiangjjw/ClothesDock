@@ -58,11 +58,17 @@ enum ClotheslineLayout {
 @MainActor final class ClotheslineMotion: ObservableObject {
     @Published private(set) var pulse = Date.distantPast
     @Published var isVisible = true
+    @Published var butterfly: ButterflyFlight?
+    @Published var gust = GustState()
     private(set) var focus = 0.5
     private(set) var strength = 1.0
+    private var ambienceTask: Task<Void, Never>?
+    private var pendingButterflyReveal = false
     @Published var dockFrame = CGRect.zero
     @Published var ropeFrame = CGRect.zero
+    @Published var ambienceFrame = CGRect.zero
     var edge: Edge = .bottom
+    var iconFrames: [CGRect] = []
     func position(local coordinate: Double) -> Double {
         let value: Double
         if edge.isVertical { value = (ropeFrame.maxY - dockFrame.maxY + coordinate) / max(1, ropeFrame.height) }
@@ -81,7 +87,7 @@ enum ClotheslineLayout {
         let envelope = sin(.pi * min(1, max(0, position)))
         let breeze = 2.8 * sin(t * 1.5 + position * 5)
         let ripple = age >= 0 && age < 6 ? 12 * strength * exp(-age * 1.25) * sin(age * 11 - abs(position - focus) * 12) : 0
-        return ClotheslineLayout.sag(at: position) + envelope * (breeze + ripple)
+        return ClotheslineLayout.sag(at: position) + envelope * (breeze + ripple) + gust.displacement(at: position, date: date)
     }
     func angle(at position: Double, date: Date, enabled: Bool) -> Double {
         guard enabled else { return 0 }
@@ -89,7 +95,68 @@ enum ClotheslineLayout {
         let age = date.timeIntervalSince(pulse)
         let breeze = 4.5 * sin(t * 1.8 + position * 9)
         let pendulum = age >= 0 && age < 6 ? 24 * strength * exp(-age * 1.2) * sin(age * 10) * exp(-abs(position - focus) * 9) : 0
-        return breeze + pendulum
+        return breeze + pendulum + gust.angle(at: position, date: date)
+    }
+
+    /// Report tile frames (in the dock panel's coordinate space) for the butterfly to land on.
+    func updateIconFrames(_ frames: [CGRect]) {
+        guard frames != iconFrames else { return }
+        iconFrames = frames
+        if pendingButterflyReveal && frames.contains(where: { CGRect(origin: .zero, size: dockFrame.size).contains($0) }) {
+            pendingButterflyReveal = false
+            playAmbience(effect: .butterfly, dockSize: dockFrame.size)
+        }
+    }
+
+    func playRevealAmbience(effect: AnimationEffect) {
+        pendingButterflyReveal = false
+        guard isVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        if effect == .butterfly && !iconFrames.contains(where: { CGRect(origin: .zero, size: dockFrame.size).contains($0) }) {
+            // The first SwiftUI layout can arrive after the visibility transition.
+            pendingButterflyReveal = true
+            return
+        }
+        playAmbience(effect: effect, dockSize: dockFrame.size)
+    }
+
+    /// Randomly replay the configured ambience effect while the dock is visible.
+    func scheduleAmbience(effect: AnimationEffect, dockSize: CGSize) {
+        stopSchedulingAmbience()
+        guard effect != .none else { return }
+        ambienceTask = Task { [weak self] in
+            while let self, !Task.isCancelled {
+                let delay = Double.random(in: 20...90)
+                try? await Task.sleep(nanoseconds: UInt64(delay * 1_000_000_000))
+                if Task.isCancelled { return }
+                if self.butterfly == nil && !self.gust.isActive(at: Date()) { self.playAmbience(effect: effect, dockSize: dockSize) }
+            }
+        }
+    }
+
+    func playAmbience(effect: AnimationEffect, dockSize: CGSize) {
+        guard isVisible, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion else { return }
+        switch effect {
+        case .butterfly:
+            guard !iconFrames.isEmpty else { return }
+            guard butterfly == nil, ambienceFrame.width > 0, ambienceFrame.height > 0 else { return }
+            let visible = iconFrames.filter { CGRect(origin: .zero, size: dockFrame.size).contains($0) }
+            guard let frame = visible.randomElement() else { return }
+            let icon = AmbienceLayout.iconOnScreen(frame, dock: dockFrame, screen: ambienceFrame)
+            butterfly = ButterflyFlight(start: Date(), iconFrame: icon, screenSize: ambienceFrame.size, edge: edge)
+        case .wind:
+            guard !gust.isActive(at: Date()) else { return }
+            gust = GustState(start: Date(), fromStart: Bool.random())
+        case .none: break
+        }
+    }
+
+    func stopSchedulingAmbience() {
+        pendingButterflyReveal = false
+        ambienceTask?.cancel(); ambienceTask = nil
+    }
+    func stopAmbience() {
+        stopSchedulingAmbience()
+        butterfly = nil; gust = GustState()
     }
 }
 
