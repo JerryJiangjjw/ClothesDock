@@ -104,6 +104,6 @@ git tag -a v0.0.2 -m "ClothesDock 0.0.2"
 git push origin v0.0.2
 ```
 
-GitHub Actions 在 `main` 推送或手动运行时构建并保存 DMG artifacts；推送 `v*` 标签时，检查标签与 `VERSION` 完全一致，分别在 Apple Silicon / Intel runner 上测试并构建，两个架构均成功后发布到 [GitHub Releases](https://github.com/JerryJiangjjw/ClothesDock/releases)。重新运行同一标签会更新对应附件，不重复创建 Release。流水线不需要额外配置令牌，只有发布任务使用 `GITHUB_TOKEN` 的 `contents: write` 权限。
+GitHub Actions 仅在推送 `v*` 标签时触发；普通分支推送不会构建，也不提供手动触发入口。流程检查标签与 `VERSION` 完全一致，分别在 Apple Silicon / Intel runner 上测试并构建，两个架构均成功后发布到 [GitHub Releases](https://github.com/JerryJiangjjw/ClothesDock/releases)。重新运行同一标签会更新对应附件，不重复创建 Release。流水线不需要额外配置令牌，只有发布任务使用 `GITHUB_TOKEN` 的 `contents: write` 权限。
 
 公开 DMG 当前尚未公证；Developer ID 签名与公证需要另行配置 Apple 开发者证书及凭据。
