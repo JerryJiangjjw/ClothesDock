@@ -16,7 +16,7 @@ esac
 app="$PWD/build/ClothesDock.app"
 actual_version="$(/usr/libexec/PlistBuddy -c 'Print :CFBundleShortVersionString' "$app/Contents/Info.plist")"
 [ "$actual_version" = "$version" ] || { printf 'Application version does not match VERSION\n' >&2; exit 1; }
-lipo -verify_arch "$arch" "$app/Contents/MacOS/ClothesDock"
+lipo "$app/Contents/MacOS/ClothesDock" -verify_arch "$arch"
 stage="$(mktemp -d "$PWD/build/dmg-stage.XXXXXX")"
 trap 'rm -rf "$stage"' EXIT HUP INT TERM
 ditto --norsrc --noextattr "$app" "$stage/ClothesDock.app"
