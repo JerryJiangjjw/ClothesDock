@@ -46,11 +46,15 @@ import ServiceManagement
     func open(_ item: PinnedItem) {
         if item.isTrash { NSWorkspace.shared.open(item.url); return }
         guard FileManager.default.fileExists(atPath: item.path) else { error = "找不到 \(item.path)，可从右键菜单移除。"; return }
-        if let app = app(item) {
-            app.activate(options: [.activateAllWindows])
-        } else if item.isApp {
-            NSWorkspace.shared.openApplication(at: item.url, configuration: .init()) { [weak self] _, error in
-                if let error { Task { @MainActor in self?.error = error.localizedDescription } }
+        if item.isApp {
+            // Opening a running app also sends its reopen event, so apps can restore
+            // a closed main window. Activation alone cannot do that.
+            app(item)?.unhide()
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            configuration.createsNewApplicationInstance = false
+            NSWorkspace.shared.openApplication(at: item.url, configuration: configuration) { [weak self] _, error in
+                if let error { Task { @MainActor in self?.error = "打开 \(item.name) 失败：\(error.localizedDescription)" } }
             }
         } else { NSWorkspace.shared.open(item.url) }
     }

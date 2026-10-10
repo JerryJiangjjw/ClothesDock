@@ -3,6 +3,22 @@ import Testing
 @testable import ClothesDock
 
 struct ClotheslineTests {
+    @Test func visibilityTransitionMovesBothPanelsTowardTheirEdge() {
+        let frame = CGRect(x: -500, y: 100, width: 300, height: 160)
+        for edge in Edge.allCases {
+            let hidden = ClotheslineLayout.visibilityFrame(frame, edge: edge, visible: false, reduceMotion: false)
+            #expect(hidden.size == frame.size)
+            if edge.isVertical {
+                #expect(hidden.minY == frame.minY)
+                #expect(hidden.minX == frame.minX + (edge == .left ? -18 : 18))
+            } else {
+                #expect(hidden.minX == frame.minX)
+                #expect(hidden.minY == frame.minY + (edge == .bottom ? -18 : 18))
+            }
+            #expect(ClotheslineLayout.visibilityFrame(frame, edge: edge, visible: true, reduceMotion: false) == frame)
+            #expect(ClotheslineLayout.visibilityFrame(frame, edge: edge, visible: false, reduceMotion: true) == frame)
+        }
+    }
     @Test func topLayoutRespectsMenuBarOnOffsetDisplay() {
         let screen = CGRect(x: -1920, y: 400, width: 1920, height: 1080)
         let dock = ClotheslineLayout.dockFrame(screen: screen, menuBarTop: 1456, edge: .top, iconSize: 52, offset: 8, length: 800)

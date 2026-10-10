@@ -2,8 +2,11 @@ import AppKit
 import SwiftUI
 import Combine
 import Carbon
+import QuartzCore
 
 final class DockPanel: NSPanel {
+    var targetVisible = false
+    var visibilityRevision = 0
     override var canBecomeKey: Bool { true }
     override var canBecomeMain: Bool { false }
 }
@@ -61,7 +64,7 @@ final class DockHostingView: NSHostingView<DockView> {
         panels = []; ropes = []; motions = []
         screens = model.config.allDisplays ? NSScreen.screens : Array(NSScreen.screens.prefix(1))
         for _ in screens {
-            let motion = ClotheslineMotion(); motion.edge = model.config.edge
+            let motion = ClotheslineMotion(); motion.edge = model.config.edge; motion.isVisible = false
             let rope = RopePanel(contentRect: .zero, styleMask: [.borderless, .nonactivatingPanel], backing: .buffered, defer: false)
             rope.level = NSWindow.Level(rawValue: NSWindow.Level.statusBar.rawValue - 1)
             rope.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
@@ -73,6 +76,7 @@ final class DockHostingView: NSHostingView<DockView> {
             panel.isFloatingPanel = true; panel.level = .statusBar
             panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .stationary]
             panel.backgroundColor = .clear; panel.isOpaque = false; panel.hasShadow = false; panel.hidesOnDeactivate = false; panel.isReleasedWhenClosed = false
+            panel.alphaValue = 0; rope.alphaValue = 0; panel.ignoresMouseEvents = true
             panel.contentView = DockHostingView(rootView: DockView(model: model, motion: motion))
             panels.append(panel)
         }
@@ -90,7 +94,9 @@ final class DockHostingView: NSHostingView<DockView> {
             let frame = ClotheslineLayout.dockFrame(screen: screen.frame, menuBarTop: screen.visibleFrame.maxY, edge: config.edge, iconSize: config.iconSize, offset: config.offset, length: length)
             let ropeFrame = ClotheslineLayout.ropeFrame(screen: screen.frame, menuBarTop: screen.visibleFrame.maxY, dock: frame, edge: config.edge)
             motions[index].dockFrame = frame; motions[index].ropeFrame = ropeFrame
-            panel.setFrame(frame, display: true); ropes[index].setFrame(ropeFrame, display: true)
+            let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            panel.setFrame(ClotheslineLayout.visibilityFrame(frame, edge: config.edge, visible: panel.targetVisible, reduceMotion: reduceMotion), display: true)
+            ropes[index].setFrame(ClotheslineLayout.visibilityFrame(ropeFrame, edge: config.edge, visible: panel.targetVisible, reduceMotion: reduceMotion), display: true)
         }
     }
     private func updateVisibility() {
@@ -99,11 +105,30 @@ final class DockHostingView: NSHostingView<DockView> {
         for (index, screen) in screens.enumerated() {
             let panel = panels[index]
             let nearEdge = ClotheslineLayout.nearEdge(mouse: mouse, screen: screen.frame, edge: model.config.edge, distance: model.config.revealDistance)
-            let within = panel.frame.insetBy(dx: -14, dy: -14).contains(mouse)
-            let show = !manualHidden && (!model.config.autoHide || nearEdge || (panel.alphaValue > 0 && within))
-            panel.alphaValue = show ? 1 : 0; panel.ignoresMouseEvents = !show
-            ropes[index].alphaValue = show ? 1 : 0
-            if motions[index].isVisible != show { motions[index].isVisible = show }
+            // Use the resting frame and requested visibility, not intermediate
+            // animation values, to avoid retriggering while the panel moves.
+            let within = motions[index].dockFrame.insetBy(dx: -14, dy: -14).contains(mouse)
+            let show = !manualHidden && (!model.config.autoHide || nearEdge || (panel.targetVisible && within))
+            guard panel.targetVisible != show else { continue }
+            panel.targetVisible = show; panel.visibilityRevision += 1
+            let revision = panel.visibilityRevision
+            let motion = motions[index], rope = ropes[index]
+            panel.ignoresMouseEvents = !show
+            if show { motion.isVisible = true }
+            let reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = reduceMotion ? 0.12 : (show ? 0.28 : 0.22)
+                context.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+                panel.animator().alphaValue = show ? 1 : 0
+                rope.animator().alphaValue = show ? 1 : 0
+                panel.animator().setFrame(ClotheslineLayout.visibilityFrame(motion.dockFrame, edge: model.config.edge, visible: show, reduceMotion: reduceMotion), display: true)
+                rope.animator().setFrame(ClotheslineLayout.visibilityFrame(motion.ropeFrame, edge: model.config.edge, visible: show, reduceMotion: reduceMotion), display: true)
+            } completionHandler: {
+                Task { @MainActor in
+                    // An interrupted hide must not pause the next reveal.
+                    if panel.visibilityRevision == revision && !panel.targetVisible { motion.isVisible = false }
+                }
+            }
         }
     }
     @objc func showSettings() {

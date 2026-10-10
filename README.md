@@ -1,5 +1,7 @@
 # 晾晾 · ClothesDock
 
+当前版本：**0.0.1**。
+
 Dock 采用透明背景，只显示从屏幕两端牵入的弧形晾衣绳、应用与固定文件夹；设置从菜单栏衣架进入。
 
 采用晾衣绳设计的原生 macOS Dock 应用。Swift + AppKit + SwiftUI，无第三方依赖，macOS 14+。当前版本为可运行的功能初版，**尚未达到原生 Dock 全部功能等价**。参考项目：[Docky](https://github.com/josejuanqm/docky)、[DeskBar](https://github.com/rajeshgoli/deskbar)、[DockDoor](https://github.com/ejbills/DockDoor)。
@@ -11,7 +13,7 @@ Dock 采用透明背景，只显示从屏幕两端牵入的弧形晾衣绳、应
 open build/ClothesDock.app
 ```
 
-Apple Silicon 默认生成本机架构；Intel 需要在 Intel 主机编译或另行交叉构建。当前签名为本地 ad-hoc，尚未公证，不是公开发行安装包。没有 Xcode 工程依赖，使用 Swift 6+ 的 Command Line Tools 与匹配的 SDK。
+Apple Silicon 默认生成本机架构；Intel 需要在 Intel 主机编译或另行交叉构建。当前使用 ad-hoc 签名，尚未进行 Apple 公证。GitHub Releases 提供直接分发的 DMG 安装包。没有 Xcode 工程依赖，使用 Swift 6+ 的 Command Line Tools 与匹配的 SDK。
 
 首次启动自动导入系统 Dock 的应用、文件夹与文件。系统 Dock 默认继续显示。点击菜单栏衣架 → 设置 → 开启替代模式，可隐藏普通桌面中的原 Dock；App Exposé、Mission Control 等系统界面仍可能强制显示原 Dock。退出晾晾或使用“恢复系统 Dock”恢复原设置。独立守护进程在异常退出后恢复；下次启动也检查残留备份。
 
@@ -30,6 +32,8 @@ Apple Silicon 默认生成本机架构；Intel 需要在 Intel 主机编译或�
 - 设置支持顶部/底部/左侧/右侧、多显示器、尺寸、边缘距离、自动隐藏、减少动态和登录启动。顶部避开菜单栏；左右位置的绳子从可用屏幕上下两端牵入。
 - 绳子粗细可调为 0.5–6 px，颜色提供黑、白、灰、棕四种预设，默认灰色；衣夹采用一体式轮廓，下端覆盖图标边缘，像夹住衣物一样夹住应用。
 - 自动隐藏的触发距离可调为 1–80 px，默认 12 px；只有鼠标进入所选物理屏幕边缘的触发范围才展开，移入应用区后保持显示。
+- 显示和隐藏采用同步淡入淡出与朝屏幕边缘的轻微滑动；系统启用“减少动态效果”时仅淡入淡出。快速反复触发不会被旧动画的结束回调打断。
+- 点击已运行的应用也发送重新打开请求，以唤回已关闭的主窗口；隐藏的应用先取消隐藏。图标按钮不显示系统键盘焦点蓝框。
 - 衣夹沿绳子的弧度定位，应用绕衣夹摆动；悬停和点击触发绳子波动与邻近应用的衰减摆动。关闭动态或启用系统“减少动态效果”后，保留静态弧形；自动隐藏时暂停动画。绳子所在的装饰窗口不接收鼠标事件。
 
 ## 功能覆盖与缺口
@@ -75,3 +79,31 @@ Apple Silicon 默认生成本机架构；Intel 需要在 Intel 主机编译或�
 悬停区域缩小到图标原始尺寸的固定矩形，排除衣夹、绳子和槽位空白，图标旋转和放大不改变悬停边界；短时间穿过相邻槽位会继续当前波动，避免反复重置导致抖动。
 
 应用图标源文件为 `Resources/AppIcon.png`，macOS 图标为 `Resources/AppIcon.icns`，构建时自动嵌入。修改源图后运行 `./scripts/build-icon.sh` 重新生成多尺寸图标。生成方式与提示词见 `Resources/icon-design.md`。
+
+
+## 版本与 DMG 发布
+
+`VERSION` 是软件版本的唯一来源，当前为 `0.0.1`。构建时自动写入应用的 `CFBundleShortVersionString`；构建号来自 `BUILD_NUMBER` 环境变量（本地默认 1，Actions 使用工作流运行序号）。应用设置中显示版本与构建号。
+
+本地构建 DMG：
+
+```sh
+./scripts/build-dmg.sh
+```
+
+生成 `build/ClothesDock-0.0.1-arm64.dmg`（Intel 主机为 `x86_64`）和对应 `.sha256` 文件。安装包包含应用、Applications 快捷方式、许可证和安装说明。
+
+发布下一版本：
+
+```sh
+python3 scripts/version.py --set 0.0.2
+git add VERSION
+git commit -m "chore: release 0.0.2"
+git push origin main
+git tag -a v0.0.2 -m "ClothesDock 0.0.2"
+git push origin v0.0.2
+```
+
+GitHub Actions 在 `main` 推送或手动运行时构建并保存 DMG artifacts；推送 `v*` 标签时，检查标签与 `VERSION` 完全一致，分别在 Apple Silicon / Intel runner 上测试并构建，两个架构均成功后发布到 [GitHub Releases](https://github.com/JerryJiangjjw/ClothesDock/releases)。重新运行同一标签会更新对应附件，不重复创建 Release。流水线不需要额外配置令牌，只有发布任务使用 `GITHUB_TOKEN` 的 `contents: write` 权限。
+
+公开 DMG 当前尚未公证；Developer ID 签名与公证需要另行配置 Apple 开发者证书及凭据。

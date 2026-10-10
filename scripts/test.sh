@@ -10,3 +10,5 @@ if [ -d "$frameworks/Testing.framework" ]; then
 fi
 swift test "$@"
 python3 scripts/test-watchdog.py
+
+python3 scripts/test-release.py

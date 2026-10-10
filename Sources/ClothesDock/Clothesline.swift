@@ -7,6 +7,15 @@ extension Edge {
 
 /// Screen coordinates remain in AppKit's bottom-left coordinate system.
 enum ClotheslineLayout {
+    static func visibilityFrame(_ frame: CGRect, edge: Edge, visible: Bool, reduceMotion: Bool) -> CGRect {
+        guard !visible && !reduceMotion else { return frame }
+        switch edge {
+        case .bottom: return frame.offsetBy(dx: 0, dy: -18)
+        case .top: return frame.offsetBy(dx: 0, dy: 18)
+        case .left: return frame.offsetBy(dx: -18, dy: 0)
+        case .right: return frame.offsetBy(dx: 18, dy: 0)
+        }
+    }
     static func dockFrame(screen: CGRect, menuBarTop: CGFloat, edge: Edge, iconSize: CGFloat, offset: CGFloat, length: CGFloat) -> CGRect {
         let thickness = iconSize + 112
         if !edge.isVertical {

@@ -9,6 +9,7 @@ struct SettingsView: View {
         Form {
             Section("晾晾 · ClothesDock") {
                 Text("把熟悉的应用挂起来。").foregroundStyle(.secondary)
+                Text("版本 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String ?? "开发版")（构建 \(Bundle.main.object(forInfoDictionaryKey: "CFBundleVersion") as? String ?? "—")）").font(.caption).foregroundStyle(.secondary)
                 Picker("位置", selection: $model.config.edge) { Text("底部").tag(Edge.bottom); Text("顶部").tag(Edge.top); Text("左侧").tag(Edge.left); Text("右侧").tag(Edge.right) }
                 HStack { Text("图标大小"); Slider(value: $model.config.iconSize, in: 32...80); Text("\(Int(model.config.iconSize)) px").monospacedDigit() }
                 HStack { Text("离屏幕边缘"); Slider(value: $model.config.offset, in: 0...80); Text("\(Int(model.config.offset)) px") }

@@ -105,7 +105,7 @@ struct AppTile: View {
             }.frame(width: width, height: height)
                 .rotationEffect(.degrees(angle), anchor: vertical ? (right ? UnitPoint(x: 1 - 12 / width, y: 0.5) : UnitPoint(x: 12 / width, y: 0.5)) : UnitPoint(x: 0.5, y: 12 / height))
                 .contentShape(Rectangle())
-        }.buttonStyle(.plain).help(item.name).accessibilityLabel(item.name)
+        }.buttonStyle(.plain).focusEffectDisabled().help(item.name).accessibilityLabel(item.name)
         .animation(reduceMotion ? nil : .spring(response: 0.3, dampingFraction: 0.5), value: hover)
         .onChange(of: hover) { _, inside in
             if inside { interaction(false) }
